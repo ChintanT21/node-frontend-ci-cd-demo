@@ -25,6 +25,21 @@ jobs:
       - name: Run tests
         run: npm test
 
+      - name: Log in to DockerHub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build and push Docker image
+        run: |
+          IMAGE_NAME=${{ secrets.DOCKER_USERNAME }}/node-frontend-ci-cd-demo
+          IMAGE_TAG=${{ github.sha }}
+          docker build -t $IMAGE_NAME:$IMAGE_TAG .
+          docker push $IMAGE_NAME:$IMAGE_TAG
+          echo "IMAGE_NAME=$IMAGE_NAME" >> $GITHUB_ENV
+          echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_ENV
+
   deploy-staging:
     needs: build-test
     if: github.ref == 'refs/heads/dev'
@@ -38,7 +53,10 @@ jobs:
 
       - name: Deploy to Staging
         run: |
-          helm upgrade --install myapp-staging ./helm/myapp -f ./helm/myapp/values-dev.yaml
+          helm upgrade --install myapp-staging ./helm/myapp \
+            -f ./helm/myapp/values-dev.yaml \
+            --set image.repository=${{ env.IMAGE_NAME }} \
+            --set image.tag=${{ env.IMAGE_TAG }}
 
   deploy-prod:
     needs: build-test
@@ -53,4 +71,7 @@ jobs:
 
       - name: Deploy to Production
         run: |
-          helm upgrade --install myapp-prod ./helm/myapp -f ./helm/myapp/values-prod.yaml
+          helm upgrade --install myapp-prod ./helm/myapp \
+            -f ./helm/myapp/values-prod.yaml \
+            --set image.repository=${{ env.IMAGE_NAME }} \
+            --set image.tag=${{ env.IMAGE_TAG }}
