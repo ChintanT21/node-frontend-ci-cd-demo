@@ -1,0 +1,25 @@
+{
+  "name": "node-frontend-ci-cd-demo",
+  "version": "1.0.0",
+  "description": "",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "echo \"No tests yet\" && exit 0",
+    "build": "echo \"No build step for now\""
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ChintanT21/node-frontend-ci-cd-demo.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/ChintanT21/node-frontend-ci-cd-demo/issues"
+  },
+  "homepage": "https://github.com/ChintanT21/node-frontend-ci-cd-demo#readme",
+  "dependencies": {
+    "express": "^5.1.0"
+  }
+}

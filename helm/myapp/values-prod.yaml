@@ -1,0 +1,10 @@
+replicaCount: 3
+image:
+  repository: DOCKER_USERNAME/myapp
+  tag: latest
+service:
+  type: LoadBalancer
+  port: 80
+  targetPort: 3000
+env:
+  NODE_ENV: production
