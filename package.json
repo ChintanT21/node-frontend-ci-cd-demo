@@ -4,9 +4,9 @@
   "description": "",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js",
-    "test": "echo \"No tests yet\" && exit 0",
-    "build": "echo \"No build step for now\""
+   "start": "node server.js",  // Your Node.js entrypoint
+    "test": "echo \"No tests yet\" && exit 0", // temporary for CI
+    "build": "echo \"No frontend build yet\" && exit 0"
   },
   "repository": {
     "type": "git",
