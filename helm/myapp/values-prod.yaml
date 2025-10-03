@@ -1,6 +1,6 @@
 replicaCount: 3
 image:
-  repository: DOCKER_USERNAME/myapp
+  repository: DOCKER_USERNAME/node-frontend-ci-cd-demo
   tag: latest
 service:
   type: LoadBalancer
