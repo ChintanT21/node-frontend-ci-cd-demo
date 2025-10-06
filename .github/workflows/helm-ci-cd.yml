@@ -1,106 +1,42 @@
-name: CI/CD with Helm Environments
+name: CI/CD to GitHub Pages
 
 on:
   push:
     branches:
-      - "feature/*"
       - "development"
       - "main"
       - "master"
 
 jobs:
-  build-test:
+  build-and-deploy:
     runs-on: ubuntu-latest
     steps:
+      # 1️⃣ Checkout repository
       - name: Checkout repo
         uses: actions/checkout@v3
 
+      # 2️⃣ Setup Node.js
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
           node-version: "18"
 
+      # 3️⃣ Install dependencies
       - name: Install dependencies
         run: npm install
 
+      # 4️⃣ Run tests
       - name: Run tests
         run: npm test
 
-      - name: Log in to DockerHub
-        uses: docker/login-action@v2
+      # 5️⃣ Build static files
+      - name: Build project
+        run: npm run build
+
+      # 6️⃣ Deploy to GitHub Pages
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v6
         with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
-
-      - name: Build and push Docker image
-        run: |
-          IMAGE_NAME=${{ secrets.DOCKER_USERNAME }}/node-frontend-ci-cd-demo
-          IMAGE_TAG=${{ github.sha }}
-          docker build -t $IMAGE_NAME:$IMAGE_TAG .
-          docker push $IMAGE_NAME:$IMAGE_TAG
-          # Optional: Also tag and push as 'latest' for dev convenience
-          docker tag $IMAGE_NAME:$IMAGE_TAG $IMAGE_NAME:latest
-          docker push $IMAGE_NAME:latest
-          echo "IMAGE_NAME=$IMAGE_NAME" >> $GITHUB_ENV
-          echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_ENV
-
-  deploy-staging:
-    needs: build-test
-    if: github.ref == 'refs/heads/development'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repo
-        uses: actions/checkout@v3  # Added for Helm chart access
-
-      - name: Setup Kubeconfig
-        run: |
-          mkdir -p $HOME/.kube
-          echo "${{ secrets.KUBE_CONFIG_V2 }}" | base64 -d > $HOME/.kube/config
-
-      - name: Install kubectl
-        run: |
-          curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
-          chmod +x kubectl
-          sudo mv kubectl /usr/local/bin/
-
-      - name: Verify kubeconfig
-        run: kubectl config current-context
-
-      - name: Install Helm
-        run: curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
-
-      - name: Deploy to Staging
-        run: |
-          helm upgrade --install myapp-staging ./helm/myapp \
-            -f ./helm/myapp/values-dev.yaml \
-            --set image.repository=${{ env.IMAGE_NAME }} \
-            --set image.tag=${{ env.IMAGE_TAG }}
-
-  deploy-prod:
-    needs: build-test
-    if: github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repo
-        uses: actions/checkout@v3  # Added for Helm chart access
-
-      - name: Setup Kubeconfig
-        run: |
-          mkdir -p $HOME/.kube
-          echo "${{ secrets.KUBE_CONFIG_V2 }}" | base64 -d > $HOME/.kube/config
-
-      - name: Install kubectl
-        run: |
-          curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
-          chmod +x kubectl
-          sudo mv kubectl /usr/local/bin/
-
-      - name: Install Helm
-        run: curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
-
-      - name: Deploy to Production
-        run: |
-          helm upgrade --install myapp-prod ./helm/myapp \
-            -f ./helm/myapp/values-prod.yaml \
-            --set image.repository=${{ env.IMAGE_NAME }} \
-            --set image.tag=${{ env.IMAGE_TAG }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./dist
+          publish_branch: ${{ github.ref == 'refs/heads/development' && 'gh-pages-staging' || 'gh-pages' }}
