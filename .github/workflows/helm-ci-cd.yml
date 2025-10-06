@@ -4,8 +4,10 @@ on:
   push:
     branches:
       - "feature/*"
-      - "dev"
+      - "development"
       - "main"
+      - "master"
+
 
 jobs:
   build-test:
