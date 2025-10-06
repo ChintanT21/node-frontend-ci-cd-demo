@@ -47,6 +47,9 @@ jobs:
     if: github.ref == 'refs/heads/development'
     runs-on: ubuntu-latest
     steps:
+      - name: Create .kube directory
+        run: mkdir -p $HOME/.kube
+        
       - name: Setup Kubeconfig
         run: echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > $HOME/.kube/config
 
