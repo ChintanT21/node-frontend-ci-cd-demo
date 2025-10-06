@@ -1,8 +1,8 @@
 replicaCount: 1
 image:
   repository: node-frontend-ci-cd-demo
-  tag: local-test
-  pullPolicy: Never
+  tag: latest
+  pullPolicy: IfNotPresent   
 service:
   type: LoadBalancer
   port: 80
