@@ -34,6 +34,7 @@ jobs:
 
       - name: Build and push Docker image
         run: |
+          npm run build
           IMAGE_NAME=${{ secrets.DOCKER_USERNAME }}/node-frontend-ci-cd-demo
           IMAGE_TAG=${{ github.sha }}
           docker build -t $IMAGE_NAME:$IMAGE_TAG .
