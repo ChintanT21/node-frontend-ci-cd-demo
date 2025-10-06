@@ -47,11 +47,13 @@ jobs:
     if: github.ref == 'refs/heads/development'
     runs-on: ubuntu-latest
     steps:
-      - name: Create .kube directory
-        run: mkdir -p $HOME/.kube
-        
       - name: Setup Kubeconfig
-        run: echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > $HOME/.kube/config
+        run: | 
+          mkdir -p $HOME/.kube
+          echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > $HOME/.kube/config
+
+      - name: Verify kubeconfig
+        run: kubectl config current-context
 
       - name: Install Helm
         run: curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
