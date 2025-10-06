@@ -1,48 +1,78 @@
-name: CI/CD with GitHub Pages
+name: CI/CD with Helm Environments
 
 permissions:
-  contents: write   # ✅ Allows github-actions bot to push to gh-pages branches
+  contents: write  # Allows bot to push to gh-pages branches
 
 on:
   push:
     branches:
+      - "feature/*"
       - "development"
+      - "main"
       - "master"
 
 jobs:
-  build:
+  build-test:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+      - name: Checkout repo
+        uses: actions/checkout@v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test
+
+      - name: Build static assets
+        run: npm run build  # Outputs to ./dist
+
+      - name: Upload Pages artifact (for official deploy)
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./dist
+
+      - name: Log in to DockerHub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build and push Docker image
+        run: |
+          IMAGE_NAME=${{ secrets.DOCKER_USERNAME }}/node-frontend-ci-cd-demo
+          IMAGE_TAG=${{ github.sha }}
+          docker build -t $IMAGE_NAME:$IMAGE_TAG .
+          docker push $IMAGE_NAME:$IMAGE_TAG
+          docker tag $IMAGE_NAME:$IMAGE_TAG $IMAGE_NAME:latest
+          docker push $IMAGE_NAME:latest
+          echo "IMAGE_NAME=$IMAGE_NAME" >> $GITHUB_ENV
+          echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_ENV
+
+  deploy-staging:
+    needs: build-test  # Fixed: was 'build'
+    if: github.ref == 'refs/heads/development'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js (for build)
+        uses: actions/setup-node@v4
         with:
           node-version: "18"
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
-      - name: Build project
+      - name: Build static assets (staging-specific if needed)
         run: npm run build
-
-      - name: Upload build artifacts
-        uses: actions/upload-artifact@v3
-        with:
-          name: build
-          path: ./dist
-
-  deploy-staging:
-    needs: build
-    if: github.ref == 'refs/heads/development'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Download build artifact
-        uses: actions/download-artifact@v3
-        with:
-          name: build
-          path: ./dist
 
       - name: Deploy to GitHub Pages (Staging)
         uses: peaceiris/actions-gh-pages@v3
@@ -51,20 +81,18 @@ jobs:
           publish_dir: ./dist
           publish_branch: gh-pages-staging
 
-  deploy-production:
-    needs: build
-    if: github.ref == 'refs/heads/master'
+  deploy-prod:
+    needs: build-test
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
-      - name: Download build artifact
-        uses: actions/download-artifact@v3
-        with:
-          name: build
-          path: ./dist
-
-      - name: Deploy to GitHub Pages (Production)
-        uses: peaceiris/actions-gh-pages@v3
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./dist
-          publish_branch: gh-pages
+      - name: Deploy to GitHub Pages (Prod)
+        id: deployment
+        uses: actions/deploy-pages@v4
+        # Removed emit_telemetry: true (invalid input)
