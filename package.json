@@ -5,6 +5,7 @@
   "type": "module",
   "main": "server.js",
   "scripts": {
+    "test": "echo \"No tests yet\" && exit 0",
     "start": "node dist/server.js",
     "dev": "ts-node server.ts",
     "build": "tsc"
