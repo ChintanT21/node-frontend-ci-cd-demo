@@ -1,0 +1,4 @@
+apiVersion: v2
+name: node-frontend-ci-cd-demo
+description: A demo Node.js + frontend app
+version: 0.1.0

@@ -1,56 +1,98 @@
 name: CI/CD with Helm Environments
 
+permissions:
+  contents: write  # Allows bot to push to gh-pages branches
+
 on:
   push:
     branches:
       - "feature/*"
-      - "dev"
+      - "development"
       - "main"
+      - "master"
 
 jobs:
   build-test:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: "18"
+          cache: 'npm'
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
       - name: Run tests
         run: npm test
 
+      - name: Build static assets
+        run: npm run build  # Outputs to ./dist
+
+      - name: Upload Pages artifact (for official deploy)
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./dist
+
+      - name: Log in to DockerHub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build and push Docker image
+        run: |
+          IMAGE_NAME=${{ secrets.DOCKER_USERNAME }}/node-frontend-ci-cd-demo
+          IMAGE_TAG=${{ github.sha }}
+          docker build -t $IMAGE_NAME:$IMAGE_TAG .
+          docker push $IMAGE_NAME:$IMAGE_TAG
+          docker tag $IMAGE_NAME:$IMAGE_TAG $IMAGE_NAME:latest
+          docker push $IMAGE_NAME:latest
+          echo "IMAGE_NAME=$IMAGE_NAME" >> $GITHUB_ENV
+          echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_ENV
+
   deploy-staging:
-    needs: build-test
-    if: github.ref == 'refs/heads/dev'
+    needs: build-test  # Fixed: was 'build'
+    if: github.ref == 'refs/heads/development'
     runs-on: ubuntu-latest
     steps:
-      - name: Setup Kubeconfig
-        run: echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > $HOME/.kube/config
+      - name: Checkout repo
+        uses: actions/checkout@v4
 
-      - name: Install Helm
-        run: curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+      - name: Setup Node.js (for build)
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
 
-      - name: Deploy to Staging
-        run: |
-          helm upgrade --install myapp-staging ./helm/myapp -f ./helm/myapp/values-dev.yaml
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build static assets (staging-specific if needed)
+        run: npm run build
+
+      - name: Deploy to GitHub Pages (Staging)
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./dist
+          publish_branch: gh-pages-staging
 
   deploy-prod:
     needs: build-test
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
-      - name: Setup Kubeconfig
-        run: echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > $HOME/.kube/config
-
-      - name: Install Helm
-        run: curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
-
-      - name: Deploy to Production
-        run: |
-          helm upgrade --install myapp-prod ./helm/myapp -f ./helm/myapp/values-prod.yaml
+      - name: Deploy to GitHub Pages (Prod)
+        id: deployment
+        uses: actions/deploy-pages@v4
+        # Removed emit_telemetry: true (invalid input)
